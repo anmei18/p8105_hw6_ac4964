@@ -26,6 +26,8 @@ scale_fill_discrete = scale_fill_viridis_d
 
 ## Problem 1
 
+Load and clean the data for regression analysis
+
 ```{r}
 birthweight_df = 
   read_csv("data/birthweight.csv") %>% 
@@ -42,5 +44,59 @@ birthweight_df =
     malform = factor(malform),
     mrace = factor(mrace)
     )
+
+check_birthweight_na = sum(is.na(birthweight_df))
+check_birthweight_na
+```
+
+
+Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. 
+
+```{r}
+birthweight_df %>% 
+  ggplot(aes(x = momage, y = bwt)) +
+  geom_point()
+
+fit = lm(bwt ~ momage + mrace, data = birthweight_df)
+summary(fit)
+
+fit %>% 
+  broom::tidy() %>% 
+  select(term,estimate,p.value) %>% 
+  knitr::kable(digits = 3)
+
+modelr::add_residuals(birthweight_df, fit) %>% 
+  ggplot(aes(x = momage, y = resid)) +
+  geom_point()
+
+modelr::add_residuals(birthweight_df, fit) %>% 
+  ggplot(aes(x = resid)) +
+  geom_density()
+
+```
+
+
+```{r}
+birthweight_df = 
+  birthweight_df %>% 
+  mutate(
+    under_30 = as.numeric(momage < 30)
+  )
+
+logistic_fit = 
+  glm(
+    under_30 ~ bwt + mrace, 
+    data = birthweight_df, 
+    family = binomial()
+    )
+
+logistic_fit %>% 
+  broom::tidy() %>% 
+  select(term, OR = estimate, p.value)
+
+logic =
+  birthweight_df %>% 
+  modelr::add_predictions(logistic_fit) %>% 
+  mutate(pred = boot::inv.logit(pred)) 
 ```
 
