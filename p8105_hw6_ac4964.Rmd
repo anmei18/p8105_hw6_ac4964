@@ -7,6 +7,8 @@ output: github_document
 
 ```{r}
 library(tidyverse)
+library(modelr)
+library(mgcv)
 
 knitr::opts_chunk$set(
   fig.width = 6,
@@ -53,50 +55,125 @@ check_birthweight_na
 Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. 
 
 ```{r}
-birthweight_df %>% 
-  ggplot(aes(x = momage, y = bwt)) +
-  geom_point()
+fit_1 = lm(bwt ~ momage + gaweeks + delwt, data = birthweight_df)
+summary(fit_1)
+summary(fit_1)$coef
 
-fit = lm(bwt ~ momage + mrace, data = birthweight_df)
-summary(fit)
-
-fit %>% 
+fit_1 %>% 
   broom::tidy() %>% 
   select(term,estimate,p.value) %>% 
   knitr::kable(digits = 3)
 
-modelr::add_residuals(birthweight_df, fit) %>% 
-  ggplot(aes(x = momage, y = resid)) +
+birthweight_df %>% 
+  modelr::add_residuals(fit_1) %>%
+  modelr::add_predictions(fit_1) %>%  
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+```
+
+Regression model using length at birth and gestational age as predictors (main effects only)
+
+```{r}
+birthweight_df %>% 
+  ggplot(aes(x = blength, y = bwt)) +
   geom_point()
 
-modelr::add_residuals(birthweight_df, fit) %>% 
-  ggplot(aes(x = resid)) +
-  geom_density()
+fit_2 = lm(bwt ~ blength + gaweeks, data = birthweight_df)
+summary(fit_2)
+summary(fit_2)$coef
 
+
+fit_2 %>% 
+  broom::tidy() %>% 
+  select(term,estimate,p.value) %>% 
+  knitr::kable(digits = 3)
+
+birthweight_df = modelr::add_residuals(birthweight_df, fit_2)
+
+birthweight_df %>% 
+  modelr::add_residuals(fit_2) %>%
+  modelr::add_predictions(fit_2) %>%  
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+
+
+```{r}
+
+fit_3 = lm(bwt ~ bhead * blength + bhead * babysex + babysex *blength, data = birthweight_df) 
+summary(fit_3)
+summary(fit_3)$coef
+
+
+fit_3 %>% 
+  broom::tidy() %>% 
+  select(term,estimate,p.value) %>% 
+  knitr::kable(digits = 3)
+
+birthweight_df %>% 
+  modelr::add_residuals(fit_3) %>%
+  modelr::add_predictions(fit_3) %>%  
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+Compare your model to two others in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
+
+        
+
+```{r}
+cv_df = crossv_mc(birthweight_df,100)
+
+
+cv_df = 
+  cv_df %>% 
+  mutate(
+    mod_1 = map(.x = train, ~lm(bwt ~ momage + gaweeks + delwt, data = .x)),
+    mod_2 = map(.x = train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    mod_3 = map(.x = train, ~lm(bwt ~ bhead * blength + bhead * babysex + babysex *blength, data = .x))
+  ) %>% 
+  mutate(
+    rmse_1 = map2_dbl(.x = mod_1, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_2 = map2_dbl(.x = mod_2, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_3 = map2_dbl(.x = mod_3, .y = test, ~rmse(model = .x, data = .y))
+  )
+
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) %>% 
+  ggplot(aes(x = model, y = rmse)) +
+  geom_violin()
+```
+
+
+## Problem 2
+
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
 ```
 
 
 ```{r}
-birthweight_df = 
-  birthweight_df %>% 
-  mutate(
-    under_30 = as.numeric(momage < 30)
-  )
 
-logistic_fit = 
-  glm(
-    under_30 ~ bwt + mrace, 
-    data = birthweight_df, 
-    family = binomial()
-    )
-
-logistic_fit %>% 
-  broom::tidy() %>% 
-  select(term, OR = estimate, p.value)
-
-logic =
-  birthweight_df %>% 
-  modelr::add_predictions(logistic_fit) %>% 
-  mutate(pred = boot::inv.logit(pred)) 
 ```
 
