@@ -71,7 +71,12 @@ birthweight_df %>%
   modelr::add_predictions(fit_1) %>%  
   ggplot(aes(x = pred, y = resid)) +
   geom_point() +
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Regression Model 1",
+    x = "Fitted Value",
+    y = "residuals",
+  )
 
 ```
 
@@ -99,7 +104,12 @@ birthweight_df %>%
   modelr::add_predictions(fit_2) %>%  
   ggplot(aes(x = pred, y = resid)) +
   geom_point() +
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Regression Model 2",
+    x = "Fitted Value",
+    y = "Residuals",
+  )
 ```
 
 Regression model using head circumference, length, sex, and all interactions (including the three-way interaction) between these.
@@ -121,7 +131,12 @@ birthweight_df %>%
   modelr::add_predictions(fit_3) %>%  
   ggplot(aes(x = pred, y = resid)) +
   geom_point() +
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Regression Model 3",
+    x = "Fitted Value",
+    y = "Residuals",
+  )
 ```
 
 Compare your model to two others in terms of the cross-validated prediction error.
@@ -151,7 +166,12 @@ cv_df %>%
     names_prefix = "rmse_"
   ) %>% 
   ggplot(aes(x = model, y = rmse)) +
-  geom_violin()
+  geom_violin() +
+  labs(
+    title = "Comparison of the three Regression Models",
+    x = "Models",
+    y = "Cross-validated Prediction Error(RMSE)",
+  )
 ```
 
 
@@ -174,6 +194,8 @@ weather_df =
 
 
 Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words.
+
+Both the distribution plot of log(B0*B1) and r^2 looks like they are normally distributed.
  
 ```{r}
 weather_bootstrap_df =
@@ -200,15 +222,19 @@ log_parameter_results =
     names_from = term,
     values_from = estimate
     ) %>% 
-  unnest(intercept,tmin) %>% 
+  unnest(c(intercept,tmin)) %>% 
   mutate(
     log_B0_B1 = log(intercept * tmin),
   ) 
   
-log_parameter_dist =
-  log_parameter_results %>% 
+log_parameter_results %>% 
   ggplot(aes(x = log_B0_B1)) +
-  geom_density()
+  geom_density() +
+  labs(
+    title = " Distribution plot of log(B0*B1) ",
+    x = "Desity",
+    y = "log(B0*B1)",
+  )
 
 r_squared_results =
   weather_bootstrap_map_results %>% 
@@ -216,19 +242,35 @@ r_squared_results =
   unnest(r_squared_results) %>%   
   select(r.squared)
 
-r_squared_dist =
-  r_squared_results %>% 
+
+r_squared_results %>% 
   ggplot(aes(x = r.squared)) +
-  geom_density()
+  geom_density() +
+  labs(
+    title = "Distribution plot of r squared ",
+    x = "Desity",
+    y = "r squared",
+  )
 
 
 ```
 
 
-Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂2
- and log(B0*B1)
+Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r^2 and log(B0*B1)
 
 ```{r}
+
+log_parameter_quantiles = quantile(log_parameter_results$log_B0_B1, c(0.025,0.975)) 
+log_parameter_quantiles
+
+log_parameter_ci = diff(log_parameter_quantiles) 
+log_parameter_ci[[1]]
+
+r_squared_quantiles = quantile(r_squared_results$r.squared, c(0.025,0.975))
+r_squared_quantiles
+
+r_squared_ci = diff(r_squared_quantiles) 
+r_squared_ci[[1]]
 
 ```
 
