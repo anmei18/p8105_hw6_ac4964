@@ -54,6 +54,8 @@ check_birthweight_na
 
 Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. 
 
+Since mother's age and weight, as well as the gestational age in weeks might affect baby's health, it is possible that these factors might influence baby's weight.In regression model 1, I will be analyzing the effects of these factors on birthweight.
+
 ```{r}
 fit_1 = lm(bwt ~ momage + gaweeks + delwt, data = birthweight_df)
 summary(fit_1)
@@ -100,7 +102,7 @@ birthweight_df %>%
   geom_smooth(method = "lm")
 ```
 
-
+Regression model using head circumference, length, sex, and all interactions (including the three-way interaction) between these.
 
 ```{r}
 
@@ -122,13 +124,10 @@ birthweight_df %>%
   geom_smooth(method = "lm")
 ```
 
-Compare your model to two others in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
-
-        
+Compare your model to two others in terms of the cross-validated prediction error.
 
 ```{r}
 cv_df = crossv_mc(birthweight_df,100)
-
 
 cv_df = 
   cv_df %>% 
@@ -158,6 +157,7 @@ cv_df %>%
 
 ## Problem 2
 
+For this problem, we’ll use the 2017 Central Park weather data that we’ve seen elsewhere. The code chunk below (adapted from the course website) will download these data.
 ```{r}
 weather_df = 
   rnoaa::meteo_pull_monitors(
@@ -172,6 +172,61 @@ weather_df =
   select(name, id, everything())
 ```
 
+
+Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words.
+ 
+```{r}
+weather_bootstrap_df =
+  weather_df %>% 
+  modelr::bootstrap(n = 5000)
+
+weather_bootstrap_map_results =
+  weather_bootstrap_df %>% 
+  mutate(
+    models = map(strap, ~ lm(tmax ~ tmin, data = .x)),
+    r_squared_results = map(models, broom::glance),
+    parameter_results = map(models, broom::tidy)
+      ) 
+
+log_parameter_results =
+  weather_bootstrap_map_results %>% 
+  select(parameter_results) %>% 
+  unnest(parameter_results) %>%
+  mutate(
+    term = recode(term, `(Intercept)` = "intercept")
+  ) %>% 
+  select(term, estimate) %>% 
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+    ) %>% 
+  unnest(intercept,tmin) %>% 
+  mutate(
+    log_B0_B1 = log(intercept * tmin),
+  ) 
+  
+log_parameter_dist =
+  log_parameter_results %>% 
+  ggplot(aes(x = log_B0_B1)) +
+  geom_density()
+
+r_squared_results =
+  weather_bootstrap_map_results %>% 
+  select(r_squared_results) %>% 
+  unnest(r_squared_results) %>%   
+  select(r.squared)
+
+r_squared_dist =
+  r_squared_results %>% 
+  ggplot(aes(x = r.squared)) +
+  geom_density()
+
+
+```
+
+
+Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂2
+ and log(B0*B1)
 
 ```{r}
 
